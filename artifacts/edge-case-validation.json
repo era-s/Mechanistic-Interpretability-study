@@ -1,0 +1,32 @@
+[
+  {
+    "prompt": "Hello",
+    "tokens": 1,
+    "prefix_error": 0.00048828125,
+    "checks": {
+      "attention_pattern": 0.0,
+      "attention_output": 6.103515625e-05,
+      "residual_sum": 0.0
+    }
+  },
+  {
+    "prompt": "The capital of France is",
+    "tokens": 5,
+    "prefix_error": 3.0517578125e-05,
+    "checks": {
+      "attention_pattern": 0.0,
+      "attention_output": 0.000244140625,
+      "residual_sum": 0.0
+    }
+  },
+  {
+    "prompt": "John John John",
+    "tokens": 3,
+    "prefix_error": 0.000244140625,
+    "checks": {
+      "attention_pattern": 0.0,
+      "attention_output": 0.00048828125,
+      "residual_sum": 0.0
+    }
+  }
+]

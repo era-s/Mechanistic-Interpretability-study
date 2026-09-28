@@ -1,0 +1,2 @@
+artifacts/*.html -diff linguist-generated=true
+notebooks/*.ipynb linguist-generated=true

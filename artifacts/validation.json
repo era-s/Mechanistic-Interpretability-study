@@ -1,0 +1,33 @@
+{
+  "model": "openai-community/gpt2",
+  "revision": "607a30d783dfa663caf39e06633721c8d4cfcd7e",
+  "device": "NVIDIA GeForce RTX 5090",
+  "python": "3.10.12",
+  "torch": "2.9.1+cu128",
+  "cuda": "12.8",
+  "packages": {
+    "transformers": "4.57.6",
+    "numpy": "2.2.6",
+    "plotly": "6.3.1",
+    "nbformat": "5.10.4",
+    "nbclient": "0.10.2"
+  },
+  "dtype": "torch.float32",
+  "seed": 42,
+  "prompt": "When Mary and John went to the store, John gave a drink to",
+  "generation": "greedy; no KV cache; full prefix recomputed",
+  "generated_text": "When Mary and John went to the store, John gave a drink to Mary and said, \"Mary",
+  "generation_steps": 6,
+  "prefix_invariance_max_abs_error": 0.00048828125,
+  "checks": {
+    "attention_pattern": 0.0,
+    "attention_output": 0.000732421875,
+    "residual_sum": 0.0
+  },
+  "pca_explained_variance": [
+    0.9543030858039856,
+    0.026030810549855232,
+    0.004678116180002689
+  ],
+  "toy_decomposition_error": 0.0
+}
