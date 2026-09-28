@@ -1,2 +1,4 @@
 artifacts/*.html -diff linguist-generated=true
 notebooks/*.ipynb linguist-generated=true
+artifacts/*.csv text eol=lf
+artifacts/effective-rank.json linguist-generated=true

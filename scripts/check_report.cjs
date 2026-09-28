@@ -11,7 +11,7 @@ const fs = require('node:fs');
   let phase='load';
   page.on('pageerror',e=>errors.push({message:e.message,stack:e.stack,phase}));
   await page.goto('file://' + path.join(root,'artifacts/week01-interactive.html'));
-  await page.waitForFunction(()=>document.querySelectorAll('.js-plotly-plot').length===7 && [...document.querySelectorAll('.js-plotly-plot')].every(p=>p._fullLayout));
+  await page.waitForFunction(()=>document.querySelectorAll('.js-plotly-plot').length===9 && [...document.querySelectorAll('.js-plotly-plot')].every(p=>p._fullLayout));
   const before = await page.evaluate(() => {
     const p=document.querySelector('.js-plotly-plot');
     return {frameCount:p._transitionData._frames.length, first:JSON.stringify(p.data[0].z)};
@@ -31,13 +31,22 @@ const fs = require('node:fs');
   await page.mouse.click(rail.x+rail.width-1,rail.y+rail.height/2);
   await page.waitForFunction(()=>document.querySelector('.js-plotly-plot')._fullLayout.sliders[0].active===24);
   await page.screenshot({path:path.join(root,'artifacts/report-preview.png')});
+  phase='rank-metric';
+  const rankPlot=page.locator('.js-plotly-plot').nth(7);
+  await rankPlot.scrollIntoViewIfNeeded();
+  await rankPlot.locator('.updatemenu-header').click();
+  await rankPlot.getByText('stable_rank',{exact:true}).click();
+  await page.waitForFunction(()=>document.querySelectorAll('.js-plotly-plot')[7].layout.title.text.includes('stable_rank'));
+  const rankBox=await rankPlot.boundingBox();
+  await page.mouse.click(rankBox.x+20,rankBox.y+20);
+  await rankPlot.screenshot({path:path.join(root,'artifacts/rank-report-preview.png')});
   const figures=await page.evaluate(()=>[...document.querySelectorAll('.js-plotly-plot')].map(p=>({
     title:p.layout.title?.text,frames:p._transitionData._frames.length,traces:p.data.length,
     width:p.clientWidth,height:p.clientHeight
   })));
   await page.setViewportSize({width:900,height:900});
   await page.evaluate(()=>window.dispatchEvent(new Event('resize')));
-  const evidence={errors,playChangedResidual:true,pauseFreezesFrame:true,sliderReachedLastStage:true,figures};
+  const evidence={errors,playChangedResidual:true,pauseFreezesFrame:true,sliderReachedLastStage:true,rankMetricSelectorWorks:true,figures};
   fs.writeFileSync(path.join(root,'artifacts/browser-validation.json'),JSON.stringify(evidence,null,2));
   await browser.close();
   if(errors.length) throw new Error(errors.join('\n'));

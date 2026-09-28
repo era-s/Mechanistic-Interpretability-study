@@ -65,6 +65,19 @@ GitHub는 JavaScript/위젯을 실행하지 않는다. PNG와 수치 결과는 G
 residual 애니메이션의 색은 큰 이상값을 함께 보여주기 위해 signed-log를 사용한다.
 hover에는 변환 전 값을 표시하며, `scale="raw"`로 선형 색상을 선택할 수 있다.
 
+## 실험 2: 유효 랭크
+
+같은 노트북의 7절에서 144개 head의 Q/K/V/O 및 QK/OV, 총 864개 가중치 행렬을 분석한다.
+Entropy effective rank, stable rank, energy participation ratio, k90/k99와 수치 랭크를 비교한다.
+5090에서 float64 SVD를 수행하고, 합성 행렬의 QR 축약 결과를 전체 행렬 SVD와 대조한다.
+`artifacts/effective-rank.csv`는 head별 지표, JSON은 전체 스펙트럼과 검증 결과,
+PNG는 전체 head 비교 그림이다. HTML 보고서에도 지표 선택과 기본 head의 스펙트럼이 포함된다.
+
+유효 랭크가 64 미만이라는 것과 정확한 랭크가 64 미만이라는 것은 다르다.
+입력 토큰 수에 제한되는 activation 랭크와도 구별한다.
+실측 수치 랭크는 모두 64였다. Entropy effective rank 중앙값은 Q/K/V/O 약 63,
+QK 61.04, OV 61.86이며, 예외적으로 L1 H8 QK=28.35, L11 H8 OV=18.80이었다.
+
 ## 해석 범위
 
 깊이, 토큰 위치, 생성 시간은 별개의 축이다. causal GPT-2에서는 prefix에 새 토큰을 붙여도

@@ -337,9 +337,155 @@ md(r"""
 않았고, 한 문장의 한 head 패턴은 일반적인 기능을 입증하지 않는다. PCA·norm·logit lens는
 서로 다른 요약이며 어느 하나도 모델의 의미를 완전히 설명하지 않는다.
 """)
+md(r"""
+## 7. 실험 2: Q, K, V, O와 QK, OV의 유효 랭크
+
+**질문:** head dimension은 64지만 실제 가중치의 특이값은 64개 방향에 고르게 퍼져 있는가?
+12개 레이어 × 12개 헤드 **전체 144개**를 측정한다. 여기서 Q/K/V/O는 activation이 아니라
+각 head의 $W_Q,W_K,W_V,W_O$를 뜻한다. bias와 LayerNorm은 이 선형 가중치 실험에서 제외한다.
+
+| 행렬 (행벡터 표기) | 모양 | 랭크의 상한 |
+|---|---|---|
+| $W_Q,W_K,W_V$ | $768\times64$ | 64 |
+| $W_O$ (해당 head의 output projection 블록) | $64\times768$ | 64 |
+| $W_{QK}=W_QW_K^T/\sqrt{64}$ | $768\times768$ | 64 |
+| $W_{OV}=W_VW_O$ | $768\times768$ | 64 |
+
+전체 12-head output projection은 $768\times768$이고 랭크가 64에 제한되지 않는다.
+이번의 O는 **head별 64개 행**이다. 마찬가지로 QK는 softmax 이후 attention 행렬이 아니다.
+softmax는 비선형이므로 attention 행렬 자체에 같은 rank 상한을 적용할 수 없다.
+
+짧은 문장에서 $Q=XW_Q$의 랭크를 측정하면 $rank(Q)\le\min(T,64)$이다.
+토큰 수가 14개라서 64보다 작아지는 것을 “모델이 저차원을 학습했다”는 증거로 삼으면 안 된다.
+따라서 먼저 문장에 무관한 **가중치 스펙트럼**을 관찰한다. 생성 중 가중치는 변하지 않는다.
+""")
+md(r"""
+### 랭크를 한 가지 숫자로 혼동하지 않기
+
+$\sigma_1\ge\cdots\ge\sigma_{64}\ge0$를 특이값이라고 할 때:
+
+- **수치적 랭크:** $\#\{\sigma_i>\max(m,n)\epsilon\sigma_1\}$.
+  float64/float32 epsilon 기준을 모두 보고한다. 후자는 같은 float64 스펙트럼에 더 큰
+  임계값을 적용한 민감도 분석이며, float32 SVD를 다시 실행한 결과가 아니다.
+- **Entropy effective rank (주 지표):** $p_i=\sigma_i/\sum_j\sigma_j$,
+  $r_{eff}=\exp(-\sum_i p_i\log p_i)$. 제곱 특이값으로 정의한 entropy와 구별한다.
+- **Stable rank:** $\sum_i\sigma_i^2/\sigma_1^2$.
+- **Energy participation ratio:** $(\sum_i\sigma_i^2)^2/\sum_i\sigma_i^4$.
+- **k90 / k99:** 누적 $\sigma_i^2$의 90% / 99%를 보존하는 최소 방향 수.
+  k99는 최적 truncated SVD의 상대 Frobenius 오차가 0.1 이하라는 의미다.
+
+동일한 크기의 특이값 64개면 effective rank=64, 한 방향뿐이면 1이다.
+조금이라도 불균일하면 64보다 작으므로 **64 미만이라는 사실만으로 강한 저랭크성을
+주장하지 않는다.** 중앙값·범위·스펙트럼과 k99를 함께 읽는다. 영행렬은 편의상 모든 지표를 0으로 정의한다.
+
+GPU에서 가중치를 float64로 변환해 계산한다. 원래 float32 가중치에 없던 정밀도가 생기는 것은 아니다.
+QK/OV는 thin QR을 이용해 동일한 비영 특이값을 가진 $64\times64$ 행렬로 줄여 계산한다.
+$A=U_AR_A$, $B^T=U_BR_B$이면 $AB=U_A(R_AR_B^T)U_B^T$이다.
+레이어 0/6/11, 헤드 0에서는 전체 $768\times768$ SVD와 직접 비교해 이 계산을 검증한다.
+
+Effective rank 정의: [Roy & Vetterli (2007)](https://www.eurasip.org/Proceedings/Eusipco/Eusipco2007/Papers/a5p-h05.pdf).
+""")
+code("""
+import rank_analysis
+from IPython.display import Markdown
+print(rank_analysis.check_metric_definitions())
+rank_result = rank_analysis.analyze(model)
+rank_analysis.save(rank_result, ARTIFACTS)
+display(Markdown(rank_analysis.summary_markdown(rank_result)))
+print("Measured:",len(rank_result["records"]),"matrices; 144 heads x 6 matrix types")
+print("Direct full-matrix SVD checks:",json.dumps(rank_result["validation"],indent=2))
+""")
+md(r"""
+### 모든 레이어·헤드 비교
+
+여섯 패널은 **같은 0–64 색 범위**를 쓴다. 드롭다운에서 effective rank, stable rank,
+k99 또는 수치 랭크를 바꿀 수 있다. 어두운 head는 그 지표에서 더 적은 방향에 집중된다.
+stable rank가 작아도 꼬리의 여러 방향이 합쳐 상당한 에너지를 가질 수 있으므로 k99도 확인한다.
+""")
+code("""
+display(Image(filename=str(ARTIFACTS / "effective-rank.png")))
+rank_fig = rank_analysis.rank_heatmap(rank_result)
+show(rank_fig)
+rank_spectrum_fig = rank_analysis.spectrum_figure(rank_result,LAYER,HEAD)
+show(rank_spectrum_fig)
+""")
+code("""
+def inspect_rank(layer=0,head=0):
+    show(rank_analysis.spectrum_figure(rank_result,layer,head))
+    rows=[r for r in rank_result["records"] if r["layer"]==layer and r["head"]==head]
+    for row in rows:
+        print(f"{row['matrix']:>2}: effective={row['effective_rank']:.2f}, "
+              f"stable={row['stable_rank']:.2f}, k99={row['k99']}, "
+              f"numerical(fp64/fp32)={row['rank_fp64']}/{row['rank_fp32']}")
+display(widgets.interactive(inspect_rank,{"manual":True,"manual_name":"Inspect spectrum"},
+    layer=widgets.IntSlider(min=0,max=11,value=LAYER,description="Layer",continuous_update=False),
+    head=widgets.IntSlider(min=0,max=11,value=HEAD,description="Head",continuous_update=False)))
+""")
+md(r"""
+### 계산 결과에서 직접 답하기
+
+다음 표는 각 행렬에서 effective rank가 64 미만인 헤드 수를 출력한다. 수치 랭크와 비교하면
+“64개 독립 방향은 남아 있지만 세기가 불균일한가?”를 판단할 수 있다.
+QK/OV가 개별 행렬보다 더 집중되는지도 **동일 head의 짝**으로 비교한다.
+""")
+code("""
+for name in rank_analysis.KINDS:
+    s=rank_result["summary"][name]
+    print(f"{name:>2}: eRank < 64: {s['effective_below_64_count']}/144; "
+          f"eRank < 32: {s['effective_below_32_count']}/144; "
+          f"k99 < 64: {s['k99_below_64_count']}/144")
+paired={(r["layer"],r["head"],r["matrix"]):r for r in rank_result["records"]}
+for product,a,b in [("QK","Q","K"),("OV","V","O")]:
+    delta=np.array([paired[l,h,product]["effective_rank"]-
+                    min(paired[l,h,a]["effective_rank"],paired[l,h,b]["effective_rank"])
+                    for l in range(12) for h in range(12)])
+    print(f"{product}: eRank(product) < min(eRank({a}), eRank({b})): "
+          f"{(delta < 0).sum()}/144; median paired difference={np.median(delta):.2f}")
+""")
+md(r"""
+### 이번 체크포인트에서 관찰한 결과
+
+고정된 GPT-2 revision에서 864개 행렬의 수치 랭크는 **두 epsilon 기준 모두 64**였다.
+entropy effective rank는 모두 64 미만이지만, 중앙값은 Q=62.81, K=62.78, V=63.11,
+O=62.98, QK=61.04, OV=61.86이다. 따라서 대부분의 head를 아주 작은 차원으로
+줄일 수 있다고 결론내릴 근거는 약하다. k99 중앙값도 각각 62, 62, 63, 63, 61, 63이다.
+
+반면 다음 head들은 눈에 띄게 집중되어 있다. 인덱스는 모두 **0부터 시작**한다.
+
+| 행렬 | layer / head | effective rank | stable rank | k99 |
+|---|---|---:|---:|---:|
+| QK | L1 H8 | 28.35 | 4.43 | 27 |
+| QK | L1 H9 | 30.30 | 2.59 | 31 |
+| OV | L11 H8 | 18.80 | 1.05 | 20 |
+
+특히 L11 H8의 OV는 stable rank가 약 1.05이므로 첫 방향이 제곱 특이값 에너지의
+약 $1/r_{stable}\approx95.4\%$를 차지하지만, **99%까지 보존하려면 20개 방향**이 필요하다.
+“거의 rank 1”이라는 말이 어떤 오차 기준인지 명시해야 하는 좋은 예다.
+위 스펙트럼 선택기에서 이 head들을 직접 비교한다. 이 수치는 고정 revision의 측정 결과이며,
+다른 체크포인트로 코드를 바꾸면 위의 실행 결과를 기준으로 다시 해석해야 한다.
+
+### 무엇까지 해석할 수 있는가?
+
+수치 랭크가 64인데 effective rank가 낮다면, 이 정의에서 스펙트럼의 집중을 관찰한 것이다.
+이는 정확한 rank deficiency나 head dimension을 줄여도 성능이 유지된다는 증명이 아니다.
+압축 가능성은 별도의 truncated-SVD 개입과 출력/성능 평가로 확인해야 한다.
+가중치의 작은 방향도 입력 분포나 downstream readout에 따라 중요할 수 있다.
+
+또한 Q/K 개별 유효 랭크는 head 내부의 일반적인 가역 기저 변환에 불변하지 않다.
+$W_Q\to W_QS$, $W_K\to W_KS^{-T}$이면 QK는 그대로다.
+마찬가지로 $W_V\to W_VS$, $W_O\to S^{-1}W_O$이면 OV는 그대로다.
+그래서 개별 Q/K/V/O와 **합성된 QK/OV를 함께** 살핀다. 직교 기저 변환에서는
+특이값이 보존되지만 일반적인 가역 변환에서는 그렇지 않다.
+
+보통의 algebraic rank에는 $rank(AB)\le\min(rank(A),rank(B))$가 성립한다.
+같은 부등식을 entropy effective rank에 자동으로 적용하지 않는다. 위 짝 비교는 실제 관측이다.
+이 실험에는 무작위 초기화나 학습 전후 대조군이 없으므로 집중이 학습 때문에 생겼다고
+단정할 수도 없다. raw 값은 `artifacts/effective-rank.csv`, 전체 스펙트럼은 JSON에 저장한다.
+""")
 code("""
 report_figures = [residual_fig, trajectory_fig, time_fig, circuit_fig,
-                   study.source_contributions(run,LAYER,HEAD,len(run["ids"])-1),lens_fig,toy_fig]
+                   study.source_contributions(run,LAYER,HEAD,len(run["ids"])-1),lens_fig,toy_fig,
+                   rank_fig,rank_spectrum_fig]
 study.save_report(report_figures, ARTIFACTS / "week01-interactive.html")
 evidence = study.metadata(model,PROMPT,runs,prefix_error)
 evidence["pca_explained_variance"] = variance.tolist()

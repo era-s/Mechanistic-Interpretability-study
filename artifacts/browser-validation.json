@@ -3,6 +3,7 @@
   "playChangedResidual": true,
   "pauseFreezesFrame": true,
   "sliderReachedLastStage": true,
+  "rankMetricSelectorWorks": true,
   "figures": [
     {
       "title": "Residual stream: 768 coordinates / signed_log color",
@@ -50,6 +51,20 @@
       "title": "One-layer attention-only: hand-built skip-trigram example",
       "frames": 0,
       "traces": 4,
+      "width": 1484,
+      "height": 450
+    },
+    {
+      "title": "Experiment 2 / stable_rank / per-head ceiling = 64",
+      "frames": 0,
+      "traces": 6,
+      "width": 1484,
+      "height": 720
+    },
+    {
+      "title": "Experiment 2 / layer 0, head 0",
+      "frames": 0,
+      "traces": 12,
       "width": 1484,
       "height": 450
     }

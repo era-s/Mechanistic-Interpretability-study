@@ -2,11 +2,11 @@
   "job_id": "mechanistic-interpretability-study",
   "host": "NG-GPU01 / Ubuntu-22.04",
   "remote_path": "/home/ll/codex-jobs/mechanistic-interpretability-study",
-  "pid": 694,
-  "started_at": "2026-09-28T05:40:54.230620+00:00",
+  "pid": 702,
+  "started_at": "2026-09-28T05:52:00.537962+00:00",
   "model": "openai-community/gpt2",
   "status": "completed",
   "owns_server": false,
-  "last_completed_cell": 25,
-  "finished_at": "2026-09-28T05:41:04.298308+00:00"
+  "last_completed_cell": 34,
+  "finished_at": "2026-09-28T05:52:16.202361+00:00"
 }
